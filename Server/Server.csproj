@@ -34,6 +34,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="System.Xml.Linq" />
@@ -44,8 +45,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Infrastructure\AnalyticsEngine.cs" />
+    <Compile Include="Infrastructure\DataStorage.cs" />
+    <Compile Include="Infrastructure\EventPublisher.cs" />
+    <Compile Include="Infrastructure\EventSubscriber.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SolarPanelService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
