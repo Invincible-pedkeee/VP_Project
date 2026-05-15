@@ -1,6 +1,8 @@
-﻿using System;
+﻿using Server.Infrastructure;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.ServiceModel;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -10,6 +12,27 @@ namespace Server
     {
         static void Main(string[] args)
         {
+            ServiceHost host = new ServiceHost(typeof(SolarPanelService));
+
+            try
+            {
+                SolarPanelService service = new SolarPanelService();
+                EventSubscriber subscriber = new EventSubscriber(service.Publisher);
+
+                host = new ServiceHost(service);
+                host.Open();
+
+                Console.WriteLine("[SERVER] Service started.");
+                Console.WriteLine("[SERVER] Press Enter for exit....");
+                Console.ReadLine();
+            }catch(Exception ex)
+            {
+                Console.WriteLine($"[SERVER] Greska: {ex.Message}");
+            }finally
+            {
+                host?.Close();
+                Console.WriteLine("[SERVER] Service closed.");
+            }
         }
     }
 }

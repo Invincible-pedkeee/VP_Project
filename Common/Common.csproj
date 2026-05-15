@@ -43,8 +43,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
+    <Compile Include="Dispose\DisposableBase.cs" />
+    <Compile Include="ISolarPanelService.cs" />
+    <Compile Include="Models\PvMeta.cs" />
+    <Compile Include="Models\PvSample.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SolarFaultException.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
