@@ -2,6 +2,7 @@
 using Common.Models;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -39,13 +40,20 @@ namespace Server.Infrastructure
                 _rejectWriter.WriteLine("RowIndex,Day,Hour,AcPwrt,DcVolt,Temper,Vl1to2,Vl2to3,Vl3to1,AcCur1,AcVlt1,Reason");
         }
 
+        private string F(double? value)
+        {
+            return value.HasValue
+                ? value.Value.ToString(CultureInfo.InvariantCulture)
+                : "";
+        }
+
         public void WriteSample(PvSample sample)
         {
             _sessionWriter.WriteLine(
                 $"{sample.RowIndex},{sample.Day},{sample.Hour}," +
-                $"{sample.AcPwrt},{sample.DcVolt},{sample.Temper}," +
-                $"{sample.Vl1to2},{sample.Vl2to3},{sample.Vl3to1}," +
-                $"{sample.AcCur1},{sample.AcVlt1}");
+                $"{F(sample.AcPwrt)},{F(sample.DcVolt)},{F(sample.Temper)}," +
+                $"{F(sample.Vl1to2)},{F(sample.Vl2to3)},{F(sample.Vl3to1)}," +
+                $"{F(sample.AcCur1)},{F(sample.AcVlt1)}");
 
             _sessionWriter.Flush();
         }
@@ -54,9 +62,9 @@ namespace Server.Infrastructure
         {
             _rejectWriter.WriteLine(
                 $"{sample.RowIndex},{sample.Day},{sample.Hour}," +
-                $"{sample.AcPwrt},{sample.DcVolt},{sample.Temper}," +
-                $"{sample.Vl1to2},{sample.Vl2to3},{sample.Vl3to1}," +
-                $"{sample.AcCur1},{sample.AcVlt1},{reason}");
+                $"{F(sample.AcPwrt)},{F(sample.DcVolt)},{F(sample.Temper)}," +
+                $"{F(sample.Vl1to2)},{F(sample.Vl2to3)},{F(sample.Vl3to1)}," +
+                $"{F(sample.AcCur1)},{F(sample.AcVlt1)},{reason}");
 
             _rejectWriter.Flush();
         }

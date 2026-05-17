@@ -39,7 +39,7 @@ namespace Server.Infrastructure
             CheckPowerFlatline(sample);
             CheckPowerSpike(sample);
 
-             if (sample.AcPwrt.HasValue)
+            if (sample.AcPwrt.HasValue)
                 _lastAcPwrt = sample.AcPwrt.Value;
         }
 
@@ -109,7 +109,8 @@ namespace Server.Infrastructure
             if (!sample.AcPwrt.HasValue || !_lastAcPwrt.HasValue)
                 return;
 
-            double delta = Math.Abs(sample.AcPwrt.Value - _lastAcPwrt.Value);
+            // Samo porast, ne pad — bez Math.Abs
+            double delta = sample.AcPwrt.Value - _lastAcPwrt.Value;
             if (delta > _powerSpikeThreshold)
             {
                 _publisher.RaiseWarning("PowerSpikeWarning",

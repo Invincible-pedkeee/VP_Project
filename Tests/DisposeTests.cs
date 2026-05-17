@@ -129,6 +129,48 @@ namespace Tests
         }
 
         // -------------------------------------------------------
+        // DISPOSE TESTOVI — WCF SESIJA
+        // -------------------------------------------------------
+
+        [TestMethod]
+        public void SolarPanelService_Dispose_CleansUpActiveSession()
+        {
+            var service = new SolarPanelService();
+            service.StartSession(new PvMeta
+            {
+                PlantId = "TestDispose",
+                FileName = "dispose.csv",
+                RowLimitN = 10,
+                TotalRows = 10,
+                SchemaVersion = "1.0"
+            });
+
+            // Simuliramo prekid — Dispose bez EndSession
+            service.Dispose();
+
+            // Nova sesija mora moći da se pokrene (sessionActive = false)
+            try
+            {
+                service.StartSession(new PvMeta
+                {
+                    PlantId = "TestDispose2",
+                    FileName = "dispose2.csv",
+                    RowLimitN = 10,
+                    TotalRows = 10,
+                    SchemaVersion = "1.0"
+                });
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Nova sesija nije mogla da se pokrene nakon Dispose: {ex.Message}");
+            }
+            finally
+            {
+                service.Dispose();
+            }
+        }
+
+        // -------------------------------------------------------
         // ANALYTICS — FLATLINE TESTOVI
         // -------------------------------------------------------
 
@@ -140,11 +182,8 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // K=10, šaljemo 9 identičnih — warning NE sme da se okine
             for (int i = 1; i <= 9; i++)
-            {
                 engine.Analyze(new PvSample { RowIndex = i, AcPwrt = 100.0 });
-            }
 
             Assert.IsFalse(warnings.Contains("PowerFlatlineWarning"),
                 "Flatline warning ne sme da se okine pre K uzastopnih redova.");
@@ -158,11 +197,8 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // K=10, treba 11 redova jer se prvi koristi kao referentna vrednost
             for (int i = 1; i <= 11; i++)
-            {
                 engine.Analyze(new PvSample { RowIndex = i, AcPwrt = 100.0 });
-            }
 
             Assert.IsTrue(warnings.Contains("PowerFlatlineWarning"),
                 "Flatline warning mora da se okine tačno na K-tom uzastopnom redu.");
@@ -176,11 +212,10 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // 5 identičnih, pa promena, pa još 5 identičnih — ne sme da se okine
             for (int i = 1; i <= 5; i++)
                 engine.Analyze(new PvSample { RowIndex = i, AcPwrt = 100.0 });
 
-            engine.Analyze(new PvSample { RowIndex = 6, AcPwrt = 200.0 }); // reset
+            engine.Analyze(new PvSample { RowIndex = 6, AcPwrt = 200.0 });
 
             for (int i = 7; i <= 11; i++)
                 engine.Analyze(new PvSample { RowIndex = i, AcPwrt = 200.0 });
@@ -194,19 +229,35 @@ namespace Tests
         // -------------------------------------------------------
 
         [TestMethod]
-        public void AnalyticsEngine_Spike_RaisedWhenDeltaExceedsThreshold()
+        public void AnalyticsEngine_Spike_RaisedOnlyOnRise()
         {
             var warnings = new List<string>();
             var publisher = new EventPublisher();
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // Threshold = 500, delta = 600 → spike mora da se okine
+            // Porast za 600 > threshold 500 — mora da se okine
             engine.Analyze(new PvSample { RowIndex = 1, AcPwrt = 100.0 });
             engine.Analyze(new PvSample { RowIndex = 2, AcPwrt = 700.0 });
 
             Assert.IsTrue(warnings.Contains("PowerSpikeWarning"),
-                "Spike warning mora da se okine kad delta premaši threshold.");
+                "Spike warning mora da se okine na naglom porastu.");
+        }
+
+        [TestMethod]
+        public void AnalyticsEngine_Spike_NotRaisedOnDrop()
+        {
+            var warnings = new List<string>();
+            var publisher = new EventPublisher();
+            publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
+            var engine = new AnalyticsEngine(publisher);
+
+            // Pad za 600 — NE sme da se okine (samo porast)
+            engine.Analyze(new PvSample { RowIndex = 1, AcPwrt = 700.0 });
+            engine.Analyze(new PvSample { RowIndex = 2, AcPwrt = 100.0 });
+
+            Assert.IsFalse(warnings.Contains("PowerSpikeWarning"),
+                "Spike warning ne sme da se okine na padu snage.");
         }
 
         [TestMethod]
@@ -217,7 +268,7 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // Threshold = 500, delta = 100 → spike NE sme da se okine
+            // Porast za 100 < threshold 500 — ne sme da se okine
             engine.Analyze(new PvSample { RowIndex = 1, AcPwrt = 100.0 });
             engine.Analyze(new PvSample { RowIndex = 2, AcPwrt = 200.0 });
 
@@ -237,7 +288,6 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // Threshold = 60, šaljemo 61 → mora da se okine
             engine.Analyze(new PvSample { RowIndex = 1, Temper = 61.0 });
 
             Assert.IsTrue(warnings.Contains("OverTempWarning"),
@@ -252,7 +302,6 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // Threshold = 60, šaljemo 59 → NE sme da se okine
             engine.Analyze(new PvSample { RowIndex = 1, Temper = 59.0 });
 
             Assert.IsFalse(warnings.Contains("OverTempWarning"),
@@ -271,13 +320,12 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // Veliki raspon — mora da se okine
             engine.Analyze(new PvSample
             {
                 RowIndex = 1,
                 Vl1to2 = 220.0,
                 Vl2to3 = 220.0,
-                Vl3to1 = 300.0  // velika razlika
+                Vl3to1 = 300.0
             });
 
             Assert.IsTrue(warnings.Contains("VoltageImbalanceWarning"),
@@ -292,7 +340,6 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            // Svi jednaki — NE sme da se okine
             engine.Analyze(new PvSample
             {
                 RowIndex = 1,
@@ -326,13 +373,12 @@ namespace Tests
 
             try
             {
-                // RowIndex 3 < 5 — mora baciti FaultException
                 service.PushSample(new PvSample { RowIndex = 3, Day = 1, Hour = "00:00" });
                 Assert.Fail("Trebalo je baciti FaultException za nemonotoni RowIndex.");
             }
             catch (FaultException<SolarFaultException>)
             {
-                // Očekivano — test prolazi
+                // Očekivano
             }
             finally
             {

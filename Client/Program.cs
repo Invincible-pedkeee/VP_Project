@@ -49,25 +49,27 @@ namespace Client
                 Console.WriteLine("[CLIENT] Started session...");
                 proxy.StartSession(meta);
 
-                foreach(var sample in samples)
+                foreach (var sample in samples)
                 {
                     proxy.PushSample(sample);
                 }
+
                 proxy.EndSession();
-                Console.WriteLine("[CLIENT] Session finished susscesuful.");
-
-
-            }catch (Exception ex)
+                Console.WriteLine("[CLIENT] Session finished successfully.");
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine($"[CLIENT] Error: {ex.Message}");
-            }finally
+            }
+            finally
             {
                 try
                 {
                     if (proxy != null)
                         ((IClientChannel)proxy).Close();
                     factory?.Close();
-                }catch
+                }
+                catch
                 {
                     ((IClientChannel)proxy)?.Abort();
                     factory?.Abort();
@@ -75,7 +77,6 @@ namespace Client
 
                 Console.WriteLine("[CLIENT] Connection closed.");
                 Console.ReadLine();
-
             }
         }
     }

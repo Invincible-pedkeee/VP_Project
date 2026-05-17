@@ -35,8 +35,9 @@ namespace Server
             try
             {
                 if (_sessionActive)
-                    throw new FaultException<SolarFaultException>(
-                        new SolarFaultException("Session is active."));
+                {
+                     CleanupSession();
+                }
 
                 _rowLimitN = meta.RowLimitN;
                 _receivedRows = 0;
@@ -65,7 +66,7 @@ namespace Server
             {
                 if (!_sessionActive)
                     throw new FaultException<SolarFaultException>(
-                        new SolarFaultException("Not single session active."));
+                        new SolarFaultException("No active session."));
 
                 if (sample.RowIndex <= _lastRowIndex)
                     throw new FaultException<SolarFaultException>(
@@ -138,8 +139,7 @@ namespace Server
                     throw new FaultException<SolarFaultException>(
                         new SolarFaultException("Session is not active"));
 
-                _storage?.Dispose();
-                _sessionActive = false;
+                CleanupSession();
 
                 _publisher.RaiseTransferCompleted(_receivedRows);
                 Console.WriteLine($"[SERVER] Transfer finished. Rows collected: {_receivedRows}");
@@ -155,10 +155,20 @@ namespace Server
             }
         }
 
-        public void Dispose()
+         private void CleanupSession()
         {
             _storage?.Dispose();
             _storage = null;
+            _sessionActive = false;
+        }
+
+        public void Dispose()
+        {
+             if (_sessionActive)
+            {
+                Console.WriteLine("[SERVER] Session cleanup on Dispose (connection dropped).");
+                CleanupSession();
+            }
         }
     }
 }
