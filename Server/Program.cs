@@ -12,7 +12,7 @@ namespace Server
     {
         static void Main(string[] args)
         {
-            ServiceHost host = new ServiceHost(typeof(SolarPanelService));
+            ServiceHost host = null;
 
             try
             {

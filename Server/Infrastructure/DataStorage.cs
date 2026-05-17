@@ -16,7 +16,6 @@ namespace Server.Infrastructure
         private readonly string _sessionPath;
         private readonly string _rejectPath;
 
-
         public DataStorage(PvMeta meta)
         {
             string date = DateTime.Now.ToString("yyyy-MM-dd");
@@ -27,26 +26,30 @@ namespace Server.Infrastructure
             _sessionPath = Path.Combine(dir, "session.csv");
             _rejectPath = Path.Combine(dir, "rejects.csv");
 
+            bool sessionNew = !File.Exists(_sessionPath) || new FileInfo(_sessionPath).Length == 0;
+            bool rejectNew = !File.Exists(_rejectPath) || new FileInfo(_rejectPath).Length == 0;
+
             _sessionWriter = new StreamWriter(_sessionPath, append: true, encoding: Encoding.UTF8);
             _rejectWriter = new StreamWriter(_rejectPath, append: true, encoding: Encoding.UTF8);
 
-            if (new FileInfo(_sessionPath).Length == 0)
+            if (sessionNew)
                 _sessionWriter.WriteLine("RowIndex,Day,Hour,AcPwrt,DcVolt,Temper,Vl1to2,Vl2to3,Vl3to1,AcCur1,AcVlt1");
 
-            if (new FileInfo(_rejectPath).Length == 0)
-                _rejectWriter.WriteLine("RowIndex,Day,Hour,AcPwrt,DcVolt,Temper,Vl1to2,Vl2to3,Vl3to1,AcCur1,AcVlt1");
+            if (rejectNew)
+                _rejectWriter.WriteLine("RowIndex,Day,Hour,AcPwrt,DcVolt,Temper,Vl1to2,Vl2to3,Vl3to1,AcCur1,AcVlt1,Reason");
         }
 
         public void WriteSample(PvSample sample)
         {
             _sessionWriter.WriteLine(
-            $"{sample.RowIndex},{sample.Day},{sample.Hour}," +
-            $"{sample.AcPwrt},{sample.DcVolt},{sample.Temper}," +
-            $"{sample.Vl1to2},{sample.Vl2to3},{sample.Vl3to1}," +
-            $"{sample.AcCur1},{sample.AcVlt1}");
+                $"{sample.RowIndex},{sample.Day},{sample.Hour}," +
+                $"{sample.AcPwrt},{sample.DcVolt},{sample.Temper}," +
+                $"{sample.Vl1to2},{sample.Vl2to3},{sample.Vl3to1}," +
+                $"{sample.AcCur1},{sample.AcVlt1}");
 
             _sessionWriter.Flush();
         }
+
         public void WriteReject(PvSample sample, string reason)
         {
             _rejectWriter.WriteLine(
@@ -69,7 +72,6 @@ namespace Server.Infrastructure
             _rejectWriter?.Close();
             _rejectWriter?.Dispose();
             _rejectWriter = null;
-
         }
     }
 }

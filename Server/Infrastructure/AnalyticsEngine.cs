@@ -13,7 +13,6 @@ namespace Server.Infrastructure
     {
         private readonly EventPublisher _publisher;
 
-        //app.config
         private readonly double _overTempThreshold;
         private readonly double _voltageImbalancePct;
         private readonly int _powerFlatlineWindow;
@@ -26,33 +25,31 @@ namespace Server.Infrastructure
         public AnalyticsEngine(EventPublisher publisher)
         {
             _publisher = publisher;
-            _overTempThreshold = double.Parse(ConfigurationManager.AppSettings["OverTempThreshold"],
-             CultureInfo.InvariantCulture);
-            _voltageImbalancePct = double.Parse(ConfigurationManager.AppSettings["VoltageImbalancePct"],
-             CultureInfo.InvariantCulture);
-            _powerFlatlineWindow = int.Parse(ConfigurationManager.AppSettings["PowerFlatlineWindow"],
-             CultureInfo.InvariantCulture);
-            _powerSpikeThreshold = double.Parse(ConfigurationManager.AppSettings["PowerSpikeThreshold"],
-             CultureInfo.InvariantCulture);
-            _flatlineEpsilon = double.Parse(ConfigurationManager.AppSettings["FlatlineEpsilon"],
-             CultureInfo.InvariantCulture);
+            _overTempThreshold = double.Parse(ConfigurationManager.AppSettings["OverTempThreshold"], CultureInfo.InvariantCulture);
+            _voltageImbalancePct = double.Parse(ConfigurationManager.AppSettings["VoltageImbalancePct"], CultureInfo.InvariantCulture);
+            _powerFlatlineWindow = int.Parse(ConfigurationManager.AppSettings["PowerFlatlineWindow"], CultureInfo.InvariantCulture);
+            _powerSpikeThreshold = double.Parse(ConfigurationManager.AppSettings["PowerSpikeThreshold"], CultureInfo.InvariantCulture);
+            _flatlineEpsilon = double.Parse(ConfigurationManager.AppSettings["FlatlineEpsilon"], CultureInfo.InvariantCulture);
         }
-        
+
         public void Analyze(PvSample sample)
         {
             CheckTemperature(sample);
             CheckVoltageImbalance(sample);
             CheckPowerFlatline(sample);
             CheckPowerSpike(sample);
+
+             if (sample.AcPwrt.HasValue)
+                _lastAcPwrt = sample.AcPwrt.Value;
         }
 
         private void CheckTemperature(PvSample sample)
         {
-            if(sample.Temper.HasValue && sample.Temper > _overTempThreshold)
+            if (sample.Temper.HasValue && sample.Temper > _overTempThreshold)
             {
                 _publisher.RaiseWarning("OverTempWarning",
-                     $"Temperature {sample.Temper}°C crosses the threshold {_overTempThreshold}°C " +
-                     $"(Row {sample.RowIndex})");
+                    $"Temperature {sample.Temper}°C crosses the threshold {_overTempThreshold}°C " +
+                    $"(Row {sample.RowIndex})");
             }
         }
 
@@ -70,7 +67,7 @@ namespace Server.Infrastructure
             double avg = (v1 + v2 + v3) / 3.0;
             double range = max - min;
 
-            if(avg > 0 && range > _voltageImbalancePct * avg)
+            if (avg > 0 && range > _voltageImbalancePct * avg)
             {
                 _publisher.RaiseWarning("VoltageImbalanceWarning",
                     $"Voltage disbalance {range:F2}V crossing over {_voltageImbalancePct * 100}% " +
@@ -80,48 +77,45 @@ namespace Server.Infrastructure
 
         private void CheckPowerFlatline(PvSample sample)
         {
-            if(!sample.AcPwrt.HasValue)
+            if (!sample.AcPwrt.HasValue)
             {
                 _flatlineCount = 0;
                 _lastAcPwrt = null;
                 return;
             }
 
-            if(_lastAcPwrt.HasValue)
+            if (_lastAcPwrt.HasValue)
             {
                 double delta = Math.Abs(sample.AcPwrt.Value - _lastAcPwrt.Value);
-                if(delta < _flatlineEpsilon)
+                if (delta < _flatlineEpsilon)
                 {
                     _flatlineCount++;
-                    if(_flatlineCount >= _powerFlatlineWindow)
+                    if (_flatlineCount == _powerFlatlineWindow)
                     {
                         _publisher.RaiseWarning("PowerFlatlineWarning",
-                             $"ACPWRT is not changed for  {_flatlineCount} in a row " +
-                             $"(row {sample.RowIndex})");
+                            $"ACPWRT is not changed for {_flatlineCount} in a row " +
+                            $"(row {sample.RowIndex})");
                     }
-                }else
+                }
+                else
                 {
                     _flatlineCount = 0;
                 }
             }
-            _lastAcPwrt = sample.AcPwrt.Value;
         }
 
         private void CheckPowerSpike(PvSample sample)
         {
-            if(!sample.AcPwrt.HasValue || !_lastAcPwrt.HasValue)
-            {
+            if (!sample.AcPwrt.HasValue || !_lastAcPwrt.HasValue)
                 return;
-            }
 
             double delta = Math.Abs(sample.AcPwrt.Value - _lastAcPwrt.Value);
-            if(delta > _powerSpikeThreshold)
+            if (delta > _powerSpikeThreshold)
             {
                 _publisher.RaiseWarning("PowerSpikeWarning",
-                $"ACPWRT jump of {delta:F2}W exceeds the threshold {_powerSpikeThreshold}W " +
-                $"(row {sample.RowIndex})");
+                    $"ACPWRT jump of {delta:F2}W exceeds the threshold {_powerSpikeThreshold}W " +
+                    $"(row {sample.RowIndex})");
             }
         }
-
     }
 }

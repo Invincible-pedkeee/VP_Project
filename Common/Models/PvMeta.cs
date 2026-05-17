@@ -13,14 +13,12 @@ namespace Common.Models
         [DataMember]
         public string FileName { get; set; }
         [DataMember]
-        public int TotalRow { get; set; }
+        public int TotalRows { get; set; }
         [DataMember]
         public string SchemaVersion { get; set; }
         [DataMember]
         public int RowLimitN { get; set; }
         [DataMember]
         public string PlantId { get; set; }
-
-
     }
 }

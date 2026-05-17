@@ -85,6 +85,14 @@ namespace Client
                             AcCur1 = ParseNullable(parts[acCur1Idx].Trim()),
                             AcVlt1 = ParseNullable(parts[acVlt1Idx].Trim())
                         };
+                        if (parts[acPwrtIdx].Trim() == "32767")
+                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL (32767) on critical field ACPWRT (row {rowIndex})");
+                        if (parts[dcVoltIdx].Trim() == "32767")
+                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL (32767) on critical field DCVOLT (row {rowIndex})");
+                        if (parts[temperIdx].Trim() == "32767")
+                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL (32767) on critical field TEMPER (row {rowIndex})");
+
+
                         samples.Add(sample);
                         dataRowCount++;
                     }

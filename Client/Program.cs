@@ -40,7 +40,7 @@ namespace Client
                 var meta = new PvMeta
                 {
                     FileName = csvPath,
-                    TotalRow = samples.Count,
+                    TotalRows = samples.Count,
                     SchemaVersion = schemaVersion,
                     RowLimitN = rowLimitN,
                     PlantId = plantId
