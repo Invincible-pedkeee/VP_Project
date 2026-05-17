@@ -36,7 +36,8 @@ namespace Server
             {
                 if (_sessionActive)
                 {
-                     CleanupSession();
+                    // Prethodna sesija ostala aktivna zbog prekida — očisti je
+                    CleanupSession();
                 }
 
                 _rowLimitN = meta.RowLimitN;
@@ -74,6 +75,14 @@ namespace Server
 
                 _lastRowIndex = sample.RowIndex;
 
+                // Zadatak 3: kritična polja bila sentinel (32767) → mapirana u null → odbaci
+                if (!sample.AcPwrt.HasValue && !sample.DcVolt.HasValue && !sample.Temper.HasValue)
+                {
+                    _storage.WriteReject(sample, "All critical fields are null/sentinel (32767.0)");
+                    return;
+                }
+
+                // Validacija numeričkih vrijednosti
                 if (sample.AcPwrt.HasValue && sample.AcPwrt < 0)
                 {
                     _storage.WriteReject(sample, "AcPwrt negative");
@@ -155,7 +164,7 @@ namespace Server
             }
         }
 
-         private void CleanupSession()
+        private void CleanupSession()
         {
             _storage?.Dispose();
             _storage = null;
@@ -164,7 +173,7 @@ namespace Server
 
         public void Dispose()
         {
-             if (_sessionActive)
+            if (_sessionActive)
             {
                 Console.WriteLine("[SERVER] Session cleanup on Dispose (connection dropped).");
                 CleanupSession();
