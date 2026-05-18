@@ -93,19 +93,21 @@ namespace Client
                         double? dcVolt = ParseNullable(parts[dcVoltIdx].Trim());
                         double? temper = ParseNullable(parts[temperIdx].Trim());
 
-                        if (!acPwrt.HasValue && !string.IsNullOrWhiteSpace(parts[acPwrtIdx].Trim()))
+                        if (!acPwrt.HasValue)
                         {
-                            rejectedWriter.WriteLine($"{line},REASON: INVALID value on critical field ACPWRT (row {rowIndex})");
+                            rejectedWriter.WriteLine($"{line},REASON: MISSING/INVALID value on critical field ACPWRT (row {rowIndex})");
                             continue;
                         }
-                        if (!dcVolt.HasValue && !string.IsNullOrWhiteSpace(parts[dcVoltIdx].Trim()))
+
+                        if (!dcVolt.HasValue)
                         {
-                            rejectedWriter.WriteLine($"{line},REASON: INVALID value on critical field DCVOLT (row {rowIndex})");
+                            rejectedWriter.WriteLine($"{line},REASON: MISSING/INVALID value on critical field DCVOLT (row {rowIndex})");
                             continue;
                         }
-                        if (!temper.HasValue && !string.IsNullOrWhiteSpace(parts[temperIdx].Trim()))
+
+                        if (!temper.HasValue)
                         {
-                            rejectedWriter.WriteLine($"{line},REASON: INVALID value on critical field TEMPER (row {rowIndex})");
+                            rejectedWriter.WriteLine($"{line},REASON: MISSING/INVALID value on critical field TEMPER (row {rowIndex})");
                             continue;
                         }
 

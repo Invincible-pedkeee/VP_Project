@@ -75,10 +75,21 @@ namespace Server
                     return;
                 }
 
-                // Sva kritična polja null (sentinel)
-                if (!sample.AcPwrt.HasValue && !sample.DcVolt.HasValue && !sample.Temper.HasValue)
+                if (!sample.AcPwrt.HasValue)
                 {
-                    _storage.WriteReject(sample, "All critical fields are null/sentinel (32767.0)");
+                    _storage.WriteReject(sample, "ACPWRT is null/sentinel/missing");
+                    return;
+                }
+
+                if (!sample.DcVolt.HasValue)
+                {
+                    _storage.WriteReject(sample, "DCVOLT is null/sentinel/missing");
+                    return;
+                }
+
+                if (!sample.Temper.HasValue)
+                {
+                    _storage.WriteReject(sample, "TEMPER is null/sentinel/missing");
                     return;
                 }
 
