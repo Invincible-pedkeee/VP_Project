@@ -140,6 +140,12 @@ Sentinel vrijednost `32767.0` se tretira kao "nema podatka" — red se odbacuje 
 
 ---
 
+## Protokol poruka (Sequence dijagram)
+
+![Sequence dijagram — protokol poruka](mermaid-diagram-2.png)
+
+---
+
 ## Alarmi i upozorenja
 
 | Alarm | Uslov |
@@ -168,6 +174,8 @@ Sentinel vrijednost `32767.0` se tretira kao "nema podatka" — red se odbacuje 
 ---
 
 ## Arhitektura
+
+![Arhitektura sistema](mermaid-diagram-1.png)
 
 ```
 CLIENT                          WCF (netTcpBinding/Streamed)         SERVER
