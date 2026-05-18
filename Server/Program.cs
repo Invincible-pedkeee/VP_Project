@@ -25,12 +25,21 @@ namespace Server
                 Console.WriteLine("[SERVER] Service started.");
                 Console.WriteLine("[SERVER] Press Enter for exit....");
                 Console.ReadLine();
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine($"[SERVER] Greska: {ex.Message}");
-            }finally
+            }
+            finally
             {
-                host?.Close();
+                try
+                {
+                    host?.Close();
+                }
+                catch
+                {
+                    host?.Abort();
+                }
                 Console.WriteLine("[SERVER] Service closed.");
             }
         }

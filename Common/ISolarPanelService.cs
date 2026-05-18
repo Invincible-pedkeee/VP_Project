@@ -6,7 +6,7 @@ using System.ServiceModel;
 using System.Text;
 using System.Threading.Tasks;
 
-
+//Tacka 2 WCF serivisi i ugovori 
 namespace Common
 {
     [ServiceContract]

@@ -4,9 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Client
 {
@@ -23,9 +20,8 @@ namespace Client
             _reader = new StreamReader(filePath);
         }
 
-        public List<PvSample> ReadSamples(string rejectedLogPath)
+        public IEnumerable<PvSample> ReadSamplesStreaming(string rejectedLogPath)
         {
-            var samples = new List<PvSample>();
             var headers = new List<string>();
             string line;
             int rowIndex = 0;
@@ -35,8 +31,8 @@ namespace Client
                 if ((line = _reader.ReadLine()) != null)
                 {
                     var parts = line.Split(',');
-                    for (int i = 0; i < parts.Length; i++)
-                        headers.Add(parts[i].Trim());
+                    foreach (var p in parts)
+                        headers.Add(p.Trim());
                 }
 
                 int dayIdx = headers.IndexOf("DAY");
@@ -50,11 +46,22 @@ namespace Client
                 int acCur1Idx = headers.IndexOf("ACCUR1");
                 int acVlt1Idx = headers.IndexOf("ACVLT1");
 
-                // Broji SVE pročitane data redove, ne samo validne
+                ValidateColumn("DAY", dayIdx);
+                ValidateColumn("HOUR", hourIdx);
+                ValidateColumn("ACPWRT", acPwrtIdx);
+                ValidateColumn("DCVOLT", dcVoltIdx);
+                ValidateColumn("TEMPER", temperIdx);
+                ValidateColumn("VL1TO2", vl1to2Idx);
+                ValidateColumn("VL2TO3", vl2to3Idx);
+                ValidateColumn("VL3TO1", vl3to1Idx);
+                ValidateColumn("ACCUR1", acCur1Idx);
+                ValidateColumn("ACVLT1", acVlt1Idx);
+
                 while ((line = _reader.ReadLine()) != null && rowIndex < _rowLimitN)
                 {
                     rowIndex++;
                     var parts = line.Split(',');
+                    PvSample sample = null;
 
                     try
                     {
@@ -65,43 +72,44 @@ namespace Client
                         }
 
                         string hourStr = parts[hourIdx].Trim();
-                        if (!TimeSpan.TryParse(hourStr, out TimeSpan hourTime))
+                        if (!TimeSpan.TryParse(hourStr, out _))
                         {
                             rejectedWriter.WriteLine($"{line},REASON: UNSUCCESSFUL PARSE HOUR");
                             continue;
                         }
 
-                        // Parsiraj kritična polja
+                        bool hasCriticalSentinel =
+                            IsSentinel(parts[acPwrtIdx].Trim()) ||
+                            IsSentinel(parts[dcVoltIdx].Trim()) ||
+                            IsSentinel(parts[temperIdx].Trim());
+
+                        if (hasCriticalSentinel)
+                        {
+                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL 32767.0 on critical field (row {rowIndex})");
+                            continue;
+                        }
+
                         double? acPwrt = ParseNullable(parts[acPwrtIdx].Trim());
                         double? dcVolt = ParseNullable(parts[dcVoltIdx].Trim());
                         double? temper = ParseNullable(parts[temperIdx].Trim());
 
-                        // Log sentinel po parsiranoj vrijednosti (hvata i "32767" i "32767.0")
-                        if (IsSentinel(parts[acPwrtIdx].Trim()))
-                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL (32767.0) on critical field ACPWRT (row {rowIndex})");
-                        if (IsSentinel(parts[dcVoltIdx].Trim()))
-                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL (32767.0) on critical field DCVOLT (row {rowIndex})");
-                        if (IsSentinel(parts[temperIdx].Trim()))
-                            rejectedWriter.WriteLine($"{line},REASON: SENTINEL (32767.0) on critical field TEMPER (row {rowIndex})");
-
-                        // Validacija kritičnih numeričkih polja — ako nije parsibilno i nije sentinel, reject
-                        if (!acPwrt.HasValue && !IsSentinel(parts[acPwrtIdx].Trim()) && !string.IsNullOrWhiteSpace(parts[acPwrtIdx].Trim()))
+                        if (!acPwrt.HasValue && !string.IsNullOrWhiteSpace(parts[acPwrtIdx].Trim()))
                         {
                             rejectedWriter.WriteLine($"{line},REASON: INVALID value on critical field ACPWRT (row {rowIndex})");
                             continue;
                         }
-                        if (!dcVolt.HasValue && !IsSentinel(parts[dcVoltIdx].Trim()) && !string.IsNullOrWhiteSpace(parts[dcVoltIdx].Trim()))
+                        if (!dcVolt.HasValue && !string.IsNullOrWhiteSpace(parts[dcVoltIdx].Trim()))
                         {
                             rejectedWriter.WriteLine($"{line},REASON: INVALID value on critical field DCVOLT (row {rowIndex})");
                             continue;
                         }
-                        if (!temper.HasValue && !IsSentinel(parts[temperIdx].Trim()) && !string.IsNullOrWhiteSpace(parts[temperIdx].Trim()))
+                        if (!temper.HasValue && !string.IsNullOrWhiteSpace(parts[temperIdx].Trim()))
                         {
                             rejectedWriter.WriteLine($"{line},REASON: INVALID value on critical field TEMPER (row {rowIndex})");
                             continue;
                         }
 
-                        var sample = new PvSample
+                        sample = new PvSample
                         {
                             RowIndex = rowIndex,
                             Day = day,
@@ -113,18 +121,26 @@ namespace Client
                             Vl2to3 = ParseNullable(parts[vl2to3Idx].Trim()),
                             Vl3to1 = ParseNullable(parts[vl3to1Idx].Trim()),
                             AcCur1 = ParseNullable(parts[acCur1Idx].Trim()),
-                            AcVlt1 = ParseNullable(parts[acVlt1Idx].Trim())
+                            AcVlt1 = ParseNullable(parts[acVlt1Idx].Trim()),
+                            RawLine = line
                         };
-
-                        samples.Add(sample);
                     }
                     catch (Exception ex)
                     {
                         rejectedWriter.WriteLine($"{line},REASON: {ex.Message}");
+                        continue;
                     }
+
+                    if (sample != null)
+                        yield return sample;
                 }
             }
-            return samples;
+        }
+
+        private void ValidateColumn(string columnName, int index)
+        {
+            if (index < 0)
+                throw new InvalidOperationException($"Missing required column: {columnName}");
         }
 
         private bool IsSentinel(string value)

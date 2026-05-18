@@ -84,7 +84,11 @@ namespace Server.Infrastructure
                 return;
             }
 
-            if (_lastAcPwrt.HasValue)
+            if (!_lastAcPwrt.HasValue)
+            {
+                _flatlineCount = 1;
+            }
+            else
             {
                 double delta = Math.Abs(sample.AcPwrt.Value - _lastAcPwrt.Value);
                 if (delta < _flatlineEpsilon)
@@ -93,13 +97,13 @@ namespace Server.Infrastructure
                     if (_flatlineCount == _powerFlatlineWindow)
                     {
                         _publisher.RaiseWarning("PowerFlatlineWarning",
-                            $"ACPWRT is not changed for {_flatlineCount} in a row " +
+                            $"ACPWRT flat for {_flatlineCount} consecutive rows " +
                             $"(row {sample.RowIndex})");
                     }
                 }
                 else
                 {
-                    _flatlineCount = 0;
+                    _flatlineCount = 1;
                 }
             }
         }

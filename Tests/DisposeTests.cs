@@ -169,7 +169,45 @@ namespace Tests
                 service.Dispose();
             }
         }
+        [TestMethod]
+        public void SolarPanelService_Dispose_WithoutEndSession_WritesTransferLog()
+        {
+            var service = new SolarPanelService();
+            service.StartSession(new PvMeta
+            {
+                PlantId = "TestInterrupt",
+                FileName = "interrupt.csv",
+                RowLimitN = 10,
+                TotalRows = 10,
+                SchemaVersion = "1.0"
+            });
 
+            service.PushSample(new PvSample { RowIndex = 1, Day = 1, Hour = "00:00", AcPwrt = 100, DcVolt = 200, Temper = 25 });
+            service.PushSample(new PvSample { RowIndex = 2, Day = 1, Hour = "01:00", AcPwrt = 110, DcVolt = 200, Temper = 26 });
+            service.PushSample(new PvSample { RowIndex = 3, Day = 1, Hour = "02:00", AcPwrt = 120, DcVolt = 200, Temper = 27 });
+
+            // Simulacija prekida — Dispose BEZ EndSession
+            service.Dispose();
+
+            string logPath = Path.Combine("Data", "TestInterrupt",
+                DateTime.Now.ToString("yyyy-MM-dd"), "transfer.log");
+
+            Assert.IsTrue(File.Exists(logPath),
+                "transfer.log mora biti kreiran pri prekidu sesije.");
+
+            string logContent = File.ReadAllText(logPath);
+            Assert.IsTrue(logContent.Contains("INTERRUPTED"),
+                "transfer.log mora sadržati poruku o prekinutom prenosu.");
+
+            string sessionPath = Path.Combine("Data", "TestInterrupt",
+                DateTime.Now.ToString("yyyy-MM-dd"), "session.csv");
+
+            using (var fs = new FileStream(sessionPath, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                Assert.IsTrue(fs.CanRead,
+                    "session.csv mora biti dostupan nakon prekida.");
+            }
+        }
         // -------------------------------------------------------
         // ANALYTICS — FLATLINE TESTOVI
         // -------------------------------------------------------
@@ -197,7 +235,7 @@ namespace Tests
             publisher.OnWarningRaised += (type, msg) => warnings.Add(type);
             var engine = new AnalyticsEngine(publisher);
 
-            for (int i = 1; i <= 11; i++)
+            for (int i = 1; i <= 10; i++)
                 engine.Analyze(new PvSample { RowIndex = i, AcPwrt = 100.0 });
 
             Assert.IsTrue(warnings.Contains("PowerFlatlineWarning"),

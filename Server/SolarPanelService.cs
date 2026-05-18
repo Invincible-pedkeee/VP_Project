@@ -2,12 +2,8 @@
 using Common.Models;
 using Server.Infrastructure;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Server
 {
@@ -35,10 +31,7 @@ namespace Server
             try
             {
                 if (_sessionActive)
-                {
-                    // Prethodna sesija ostala aktivna zbog prekida — očisti je
                     CleanupSession();
-                }
 
                 _rowLimitN = meta.RowLimitN;
                 _receivedRows = 0;
@@ -50,10 +43,7 @@ namespace Server
                 _publisher.RaiseTransferStarted(meta.FileName);
                 Console.WriteLine($"[SERVER] Session begin: {meta.FileName}, limit: {meta.RowLimitN} rows");
             }
-            catch (FaultException<SolarFaultException>)
-            {
-                throw;
-            }
+            catch (FaultException<SolarFaultException>) { throw; }
             catch (Exception ex)
             {
                 throw new FaultException<SolarFaultException>(
@@ -75,64 +65,53 @@ namespace Server
 
                 _lastRowIndex = sample.RowIndex;
 
-                // Zadatak 3: kritična polja bila sentinel (32767) → mapirana u null → odbaci
+                // NaN / Infinity provjera
+                if (IsInvalidReal(sample.AcPwrt) || IsInvalidReal(sample.DcVolt) ||
+                    IsInvalidReal(sample.Temper) || IsInvalidReal(sample.Vl1to2) ||
+                    IsInvalidReal(sample.Vl2to3) || IsInvalidReal(sample.Vl3to1) ||
+                    IsInvalidReal(sample.AcCur1) || IsInvalidReal(sample.AcVlt1))
+                {
+                    _storage.WriteReject(sample, "Invalid real number: NaN or Infinity");
+                    return;
+                }
+
+                // Sva kritična polja null (sentinel)
                 if (!sample.AcPwrt.HasValue && !sample.DcVolt.HasValue && !sample.Temper.HasValue)
                 {
                     _storage.WriteReject(sample, "All critical fields are null/sentinel (32767.0)");
                     return;
                 }
 
-                // Validacija numeričkih vrijednosti
                 if (sample.AcPwrt.HasValue && sample.AcPwrt < 0)
-                {
-                    _storage.WriteReject(sample, "AcPwrt negative");
-                    return;
-                }
+                { _storage.WriteReject(sample, "AcPwrt negative"); return; }
+
+                if (sample.AcCur1.HasValue && sample.AcCur1 < 0)
+                { _storage.WriteReject(sample, "AcCur1 negative"); return; }
 
                 if (sample.DcVolt.HasValue && sample.DcVolt <= 0)
-                {
-                    _storage.WriteReject(sample, "DcVolt not positive");
-                    return;
-                }
+                { _storage.WriteReject(sample, "DcVolt not positive"); return; }
 
                 if (sample.AcVlt1.HasValue && sample.AcVlt1 <= 0)
-                {
-                    _storage.WriteReject(sample, "AcVlt1 not positive");
-                    return;
-                }
+                { _storage.WriteReject(sample, "AcVlt1 not positive"); return; }
 
                 if (sample.Vl1to2.HasValue && sample.Vl1to2 <= 0)
-                {
-                    _storage.WriteReject(sample, "Vl1to2 not positive");
-                    return;
-                }
+                { _storage.WriteReject(sample, "Vl1to2 not positive"); return; }
 
                 if (sample.Vl2to3.HasValue && sample.Vl2to3 <= 0)
-                {
-                    _storage.WriteReject(sample, "Vl2to3 not positive");
-                    return;
-                }
+                { _storage.WriteReject(sample, "Vl2to3 not positive"); return; }
 
                 if (sample.Vl3to1.HasValue && sample.Vl3to1 <= 0)
-                {
-                    _storage.WriteReject(sample, "Vl3to1 not positive");
-                    return;
-                }
+                { _storage.WriteReject(sample, "Vl3to1 not positive"); return; }
 
                 _storage.WriteSample(sample);
                 _receivedRows++;
-
                 _analytics.Analyze(sample);
-
                 _publisher.RaiseSampleReceived(sample.RowIndex, _receivedRows, _rowLimitN);
 
                 double pct = _rowLimitN > 0 ? (double)_receivedRows / _rowLimitN * 100 : 0;
                 Console.WriteLine($"[SERVER] Transfer in progress .... row {_receivedRows}/{_rowLimitN} ({pct:F1}%)");
             }
-            catch (FaultException<SolarFaultException>)
-            {
-                throw;
-            }
+            catch (FaultException<SolarFaultException>) { throw; }
             catch (Exception ex)
             {
                 throw new FaultException<SolarFaultException>(
@@ -148,20 +127,23 @@ namespace Server
                     throw new FaultException<SolarFaultException>(
                         new SolarFaultException("Session is not active"));
 
+                _storage?.WriteTransferLog($"Transfer completed normally. Rows received: {_receivedRows}");
                 CleanupSession();
 
                 _publisher.RaiseTransferCompleted(_receivedRows);
                 Console.WriteLine($"[SERVER] Transfer finished. Rows collected: {_receivedRows}");
             }
-            catch (FaultException<SolarFaultException>)
-            {
-                throw;
-            }
+            catch (FaultException<SolarFaultException>) { throw; }
             catch (Exception ex)
             {
                 throw new FaultException<SolarFaultException>(
                     new SolarFaultException($"Error EndSession: {ex.Message}"));
             }
+        }
+
+        private bool IsInvalidReal(double? value)
+        {
+            return value.HasValue && (double.IsNaN(value.Value) || double.IsInfinity(value.Value));
         }
 
         private void CleanupSession()
@@ -176,6 +158,8 @@ namespace Server
             if (_sessionActive)
             {
                 Console.WriteLine("[SERVER] Session cleanup on Dispose (connection dropped).");
+                _storage?.WriteTransferLog(
+                    $"Transfer INTERRUPTED. Dispose called without EndSession. Rows received so far: {_receivedRows}");
                 CleanupSession();
             }
         }

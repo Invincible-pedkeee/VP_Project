@@ -37,5 +37,8 @@ namespace Common.Models
 
         [DataMember]
         public double? AcVlt1 { get; set; }
+
+        [DataMember]
+        public string RawLine { get; set; }
     }
 }

@@ -1,12 +1,8 @@
 ﻿using Common;
 using Common.Models;
 using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Linq;
 using System.ServiceModel;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Client
 {
@@ -25,37 +21,34 @@ namespace Client
                 string schemaVersion = ConfigurationManager.AppSettings["SchemaVersion"];
                 int rowLimitN = int.Parse(ConfigurationManager.AppSettings["RowLimitN"]);
 
-                Console.WriteLine("[CLIENT] Reading CSV file...");
-                List<PvSample> samples;
-
-                using (var reader = new CsvReader(csvPath, rowLimitN))
-                {
-                    samples = reader.ReadSamples(rejectedLog);
-                }
-                Console.WriteLine($"[CLIENT] Read {samples.Count} valid rows.");
-
                 factory = new ChannelFactory<ISolarPanelService>("SolarPanelEndpoint");
                 proxy = factory.CreateChannel();
 
                 var meta = new PvMeta
                 {
                     FileName = csvPath,
-                    TotalRows = samples.Count,
+                    TotalRows = rowLimitN,
                     SchemaVersion = schemaVersion,
                     RowLimitN = rowLimitN,
                     PlantId = plantId
                 };
 
-                Console.WriteLine("[CLIENT] Started session...");
+                Console.WriteLine("[CLIENT] Starting session...");
                 proxy.StartSession(meta);
 
-                foreach (var sample in samples)
+                int sent = 0;
+
+                using (var reader = new CsvReader(csvPath, rowLimitN))
                 {
-                    proxy.PushSample(sample);
+                    foreach (var sample in reader.ReadSamplesStreaming(rejectedLog))
+                    {
+                        proxy.PushSample(sample);
+                        sent++;
+                    }
                 }
 
                 proxy.EndSession();
-                Console.WriteLine("[CLIENT] Session finished successfully.");
+                Console.WriteLine($"[CLIENT] Session finished successfully. Sent {sent} rows.");
             }
             catch (Exception ex)
             {
